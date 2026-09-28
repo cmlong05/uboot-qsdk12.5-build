@@ -2,6 +2,10 @@
 # SPDX-License-Identifier:	GPL-2.0+
 #
 
+# CONFIG_DEBUG_USB: enable debug() in the DWC3 core.  See
+# board/ipq6018/Kconfig.
+ccflags-$(CONFIG_DEBUG_USB) += -DDEBUG
+
 obj-$(CONFIG_USB_DWC3)			+= dwc3.o
 
 dwc3-y					:= core.o

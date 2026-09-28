@@ -190,6 +190,15 @@ obj-y += cmd_usb.o
 obj-y += usb.o usb_hub.o
 obj-$(CONFIG_USB_STORAGE) += usb_storage.o
 endif
+# CONFIG_DEBUG_USB: turn on debug() for the USB stack only (see
+# board/ipq6018/Kconfig).  Defining DEBUG for the whole tree is not
+# desirable on these size-constrained images.
+ifdef CONFIG_DEBUG_USB
+CFLAGS_cmd_usb.o += -DDEBUG
+CFLAGS_usb.o += -DDEBUG
+CFLAGS_usb_hub.o += -DDEBUG
+CFLAGS_usb_storage.o += -DDEBUG
+endif
 obj-$(CONFIG_CMD_FASTBOOT) += cmd_fastboot.o
 obj-$(CONFIG_CMD_FS_UUID) += cmd_fs_uuid.o
 

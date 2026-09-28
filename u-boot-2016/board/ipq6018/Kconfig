@@ -15,6 +15,28 @@ config SYS_CONFIG_NAME
 config USB_XHCI_IPQ
 	bool "Enable usb support for ipq6018"
 
+config DEBUG_USB
+	bool "Enable verbose USB debug output"
+	default n
+	help
+	  Compile the U-Boot USB stack with the DEBUG macro so that the
+	  debug() messages in common/usb*.c and drivers/usb/{host,dwc3}/ are
+	  printed ("usb start", xHCI register access, DWC3 core setup, ...).
+
+	  This U-Boot version (2016.01) predates CONFIG_LOG, so the global
+	  DEBUG macro is the only mechanism; unlike defining DEBUG for the
+	  whole tree, this only affects the USB objects, which keeps the
+	  debug strings out of the size-constrained image.
+
+config DEBUG_XHCI
+	bool "Enable verbose xHCI debug output"
+	default n
+	select DEBUG_USB
+	help
+	  Kept as its own switch because it is the usual name for the xHCI
+	  half of the USB debug output.  It selects DEBUG_USB, which is what
+	  actually turns the messages on.
+
 config PCI_IPQ
 	bool "Enable pci support for ipq6018"
 

@@ -13,12 +13,17 @@
 
 /dts-v1/;
 #include "ipq6018-soc.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 / {
 	host_name = "JDCloud AX6600 (Athena)";
 	model = "ipq6018-jdcloud_re-cs-02";
 	compatible = "qca,ipq6018-cp03-c3", "qca,ipq6018";
 	machid = <0x8030202>;
 	config_name = "config@cp03-c3", "config-cp03-c3";
+
+	/* GIC, so that the "interrupts" of the USB nodes below resolve */
+	interrupt-parent = <&intc>;
 
 	aliases {
 		console = "/serial@78B1000";
@@ -93,6 +98,116 @@
 			pull = <GPIO_PULL_DOWN>;
 			oe = <GPIO_OE_ENABLE>;
 			active_level = <GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	/*
+	 * GIC. Only present so that the interrupts below have a parent and
+	 * dtc stops complaining; U-Boot on this SoC brings the GIC up from
+	 * hard-coded registers, no driver binds to this node.
+	 */
+	intc: interrupt-controller@b000000 {
+		compatible = "qcom,msm-qgic2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xb000000 0x1000>,
+		      <0xb002000 0x1000>,
+		      <0xb001000 0x1000>,
+		      <0xb004000 0x1000>;
+	};
+
+	/*
+	 * USB ---------------------------------------------------------------
+	 *
+	 * ipq6018-soc.dtsi already describes the two DWC3 cores as
+	 * "qca,dwc3-ipq" nodes - xhci@8a00000 (USB0, USB3 + USB2) and
+	 * xhci@7000000 (USB1, USB2). Those are what U-Boot's xhci-ipq driver
+	 * binds, and clock/PLL/PHY bring-up is done in board code, see
+	 * ipq_board_usb_init() in board/qca/arm/ipq6018/ipq6018.c.
+	 *
+	 * The nodes below complete the board description the way the vendor
+	 * and Linux device trees do (liminix ipq6010-re-cs.dtsi +
+	 * ipq6018.dtsi):
+	 *   - usb2_phy / usb3_phy : the QUSB2 (HS) and QMP (SS) PHYs of USB0,
+	 *   - usb3               : the "qcom,dwc3" glue node with its
+	 *                          "snps,dwc3" child, carrying phys /
+	 *                          interrupts / dr_mode,
+	 *   - usb_vbus           : the 5 V port power switch as a fixed
+	 *                          regulator enabled from TLMM GPIO22.
+	 *
+	 * U-Boot's xhci-ipq driver only consumes reg / rst_ctrl / hs_only, so
+	 * the extra nodes are descriptive there: the regulator is not probed
+	 * (no CONFIG_DM_REGULATOR / CONFIG_DM_GPIO on this target). The pin
+	 * number is still worth recording because it can be driven by hand
+	 * from the console ("gpio set 22") to power the port.
+	 */
+	usb_vbus: regulator-usb-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <22>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	usb2_phy: phy@79000 {
+		compatible = "qcom,ipq6018-qusb2-phy";
+		reg = <0x79000 0x180>;
+		#phy-cells = <0>;
+		vdd-supply = <&usb_vbus>;
+		status = "okay";
+	};
+
+	usb3_phy: phy@78000 {
+		compatible = "qcom,ipq6018-qmp-usb3-phy";
+		reg = <0x78000 0x1000>;
+		#phy-cells = <0>;
+		status = "okay";
+	};
+
+	usb3: usb@8af8800 {
+		compatible = "qcom,ipq6018-dwc3", "qcom,dwc3";
+		reg = <0x8af8800 0x400>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+
+		dwc3_0: dwc3@8a00000 {
+			compatible = "snps,dwc3";
+			reg = <0x8a00000 0xcd00>;
+			interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb2_phy>, <&usb3_phy>;
+			phy-names = "usb2-phy", "usb3-phy";
+			dr_mode = "host";
+		};
+	};
+
+	/*
+	 * USB0 port power switch.  U-Boot's ipq_board_usb_init() walks the
+	 * "usb_gpio" child, muxes the pad to GPIO with qca_gpio_init() and
+	 * drives it high, so VBUS is already on when "usb start" runs.  This
+	 * is the QSDK-native form of the usb_vbus regulator above (same
+	 * pin); that regulator node is kept for parity with the Linux DT but
+	 * is never probed here.
+	 */
+	xhci@8a00000 {
+		usb_pwr_gpio = <22>;
+
+		usb_gpio {
+			pwr_gpio {
+				gpio = <22>;
+				func = <0>;
+				out = <GPIO_OUT_HIGH>;
+				pull = <GPIO_PULL_DOWN>;
+				drvstr = <GPIO_8MA>;
+				oe = <GPIO_OE_ENABLE>;
+			};
 		};
 	};
 

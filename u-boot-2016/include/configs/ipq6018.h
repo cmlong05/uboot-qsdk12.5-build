@@ -161,6 +161,16 @@ extern loff_t board_env_size;
 #define CONFIG_USB_MAX_CONTROLLER_COUNT         2
 #endif
 
+/*
+ * FAT: so the kernel FIT can be loaded from a USB partition.  USB host
+ * comes up through CONFIG_USB_XHCI_IPQ above, but without a filesystem
+ * there is nothing to read it with - `usb start` alone only gives access
+ * to raw sectors.
+ */
+#define CONFIG_FS_FAT
+#define CONFIG_FAT_WRITE
+#define CONFIG_CMD_FAT
+
 #define PCI_MAX_DEVICES	1
 #ifdef CONFIG_PCI_IPQ
 #define CONFIG_PCI
@@ -269,7 +279,19 @@ extern loff_t board_env_size;
 #define CONFIG_SYS_MEMTEST_END		CONFIG_SYS_MEMTEST_START + 0x100
 
 /* NSS firmware loaded using bootm */
+#ifdef CONFIG_TARGET_IPQ6018_JDCLOUD_RE_CS_02
+/*
+ * USB first: the kernel FIT sits on partition 1 ("boot", FAT) of the stick.
+ * 0x44000000 is scratch RAM, deliberately not 0x41000000 - that is the
+ * address the kernel in the FIT is linked for and decompresses to, so a FIT
+ * read to exactly there is overwritten by its own decompression. If the
+ * stick is absent or unreadable the commands fail and common/autoboot.c
+ * falls back to bootipq (eMMC 0:HLOS).
+ */
+#define CONFIG_BOOTCOMMAND		"usb start; fatload usb 0:1 0x44000000 fit.itb; bootm 0x44000000"
+#else
 #define CONFIG_BOOTCOMMAND		"bootipq"
+#endif
 #define CONFIG_BOOTARGS			"console=ttyMSM0,115200n8"
 #define QCA_ROOT_FS_PART_NAME		"rootfs"
 

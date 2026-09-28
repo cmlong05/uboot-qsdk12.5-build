@@ -698,6 +698,36 @@ static void usb_init_phy(int index)
 	}
 }
 
+/*
+ * Board-level USB VBUS / port power switch.
+ *
+ * The 5 V switch of this board is enabled from TLMM GPIO22 - the same
+ * wiring the vendor and Linux device trees describe with the usb_vbus
+ * regulator on qusb_phy_0.  U-Boot does not run the regulator or pinctrl
+ * frameworks, and neither does it power the port anywhere else, so the
+ * pad is muxed and driven here from the "usb_gpio"/"usb_pwr_gpio"
+ * properties of the USB node (keeps the pin number in the DTS).
+ */
+static void usb_vbus_init(int nodeoff)
+{
+	int gpio_node, pwr_gpio;
+
+	if (nodeoff < 0)
+		return;
+
+	gpio_node = fdt_subnode_offset(gd->fdt_blob, nodeoff, "usb_gpio");
+	if (gpio_node < 0)
+		return;
+
+	qca_gpio_init(gpio_node);
+
+	pwr_gpio = fdtdec_get_int(gd->fdt_blob, nodeoff, "usb_pwr_gpio", -1);
+	if (pwr_gpio >= 0) {
+		gpio_set_value(pwr_gpio, GPIO_OUT_HIGH);
+		printf("USB: VBUS enabled (GPIO%d)\n", pwr_gpio);
+	}
+}
+
 int ipq_board_usb_init(void)
 {
 	int i, nodeoff;
@@ -711,6 +741,13 @@ int ipq_board_usb_init(void)
 			usb_init_phy(i);
 		}
 	}
+
+	/* Port power (VBUS), for the controllers that describe a switch */
+	for (i=0; i<CONFIG_USB_MAX_CONTROLLER_COUNT; i++) {
+		snprintf(node_name, sizeof(node_name), "usb%d", i);
+		usb_vbus_init(fdt_path_offset(gd->fdt_blob, node_name));
+	}
+
 	return 0;
 }
 #endif

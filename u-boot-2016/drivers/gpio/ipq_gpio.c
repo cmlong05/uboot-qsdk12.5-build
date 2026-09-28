@@ -59,7 +59,7 @@ void gpio_tlmm_config(struct qca_gpio_config *gpio_config)
 	return;
 }
 
-void gpio_set_value(unsigned int gpio, unsigned int out)
+int gpio_set_value(unsigned int gpio, int out)
 {
 	unsigned int *addr = (unsigned int *)GPIO_IN_OUT_ADDR(gpio);
 	unsigned int val = 0;
@@ -68,6 +68,8 @@ void gpio_set_value(unsigned int gpio, unsigned int out)
 	val &= ~(0x2);
 	val |= out << 1;
 	writel(val, addr);
+
+	return 0;
 }
 
 int gpio_get_value(unsigned int gpio)
@@ -78,7 +80,7 @@ int gpio_get_value(unsigned int gpio)
 	return (val & 1);
 }
 
-void gpio_direction_output(unsigned int gpio, unsigned int out)
+int gpio_direction_output(unsigned int gpio, int out)
 {
 	unsigned int *addr = (unsigned int *)GPIO_CONFIG_ADDR(gpio);
 	unsigned int val = 0;
@@ -87,7 +89,40 @@ void gpio_direction_output(unsigned int gpio, unsigned int out)
 	val = readl(addr);
 	val |= 1 << 9;
 	writel(val, addr);
+
+	return 0;
 }
+
+#ifndef CONFIG_DM_GPIO
+/*
+ * Legacy (non driver-model) GPIO API, needed by the "gpio" command
+ * (CONFIG_CMD_GPIO).  This SoC has no DM GPIO driver, so the command
+ * addresses pins by their plain TLMM number, e.g. "gpio set 22".
+ * gpio_get_value()/gpio_direction_output() above already provide the
+ * value/direction half; only the request/free/input stubs are missing.
+ */
+int gpio_request(unsigned gpio, const char *label)
+{
+	return 0;
+}
+
+int gpio_free(unsigned gpio)
+{
+	return 0;
+}
+
+int gpio_direction_input(unsigned gpio)
+{
+	unsigned int *addr = (unsigned int *)GPIO_CONFIG_ADDR(gpio);
+	unsigned int val = readl(addr);
+
+	/* Clear OE to make the pad an input */
+	val &= ~(1 << 9);
+	writel(val, addr);
+
+	return 0;
+}
+#endif
 
 int qca_gpio_init(int offset)
 {

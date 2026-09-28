@@ -5,6 +5,10 @@
 # SPDX-License-Identifier:	GPL-2.0+
 #
 
+# CONFIG_DEBUG_USB: enable debug() in the USB host stack (xhci, the dwc3
+# glue, the DM usb uclass, ...).  See board/ipq6018/Kconfig.
+ccflags-$(CONFIG_DEBUG_USB) += -DDEBUG
+
 ifdef CONFIG_DM_USB
 obj-$(CONFIG_CMD_USB) += usb-uclass.o
 obj-$(CONFIG_SANDBOX) += usb-sandbox.o

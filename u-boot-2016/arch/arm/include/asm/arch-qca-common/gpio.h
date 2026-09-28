@@ -48,13 +48,18 @@ struct qca_gpio_config {
 
 void gpio_tlmm_config(struct qca_gpio_config *gpio_config);
 
-void gpio_set_value(unsigned int gpio, unsigned int out);
+/*
+ * These must match the generic prototypes in <asm-generic/gpio.h>; the
+ * "gpio" command (CONFIG_CMD_GPIO) pulls both headers into one
+ * translation unit through <common.h> and <asm/gpio.h>.
+ */
+int gpio_set_value(unsigned int gpio, int out);
 
 int gpio_get_value(unsigned int gpio);
 
 int qca_gpio_init(int offset);
 int qca_gpio_deinit(int offset);
-void gpio_direction_output(unsigned int gpio, unsigned int out);
+int gpio_direction_output(unsigned int gpio, int out);
 
 /* GPIO TLMM: Output value */
 #define GPIO_OUT_LOW	0
